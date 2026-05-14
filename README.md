@@ -1,66 +1,381 @@
-# PC to LED Matrix Wireless Communication via HC-05 & CH552T
+# BTMatrix8051
 
-This project implements a high-speed wireless data transmission and multimedia display system. The system utilizes the **CH552T** microcontroller as the core processing unit, combined with an **HC-05** Bluetooth module to communicate with a computer (or other Bluetooth-enabled devices), driving a **16x16 LED Matrix (WS2812B)**.
+Wireless 16×16 WS2812B LED matrix driven by a CH552T and controlled from a PC through an HC-05 Bluetooth module.
 
-By optimizing the data structure and utilizing specialized hardware communication techniques, the project allows for the display of various content formats ranging from static images and rainbow effects to animations (GIFs) and real-time computer vision applications like Face Detection.
+## Overview
 
-## 🌟 Architecture Overview
+```text
+PC / Laptop
+  -> Bluetooth SPP
+  -> HC-05
+  -> UART 115200 8N1
+  -> CH552T
+  -> WS2812B 16×16
+```
 
-The system's operational workflow follows this signal flow:
+The PC generates a 16×16 frame, sends it over Bluetooth, and the CH552T outputs the data to the WS2812B matrix by bit-banging.
 
-**Laptop (Transmitter)** ➔ `Bluetooth` ➔ **HC-05 (Receiver)** ➔ `UART (Baud: 115200)` ➔ **CH552T (Processing)** ➔ `Bit-Banging` ➔ **WS2812B LED Matrix (16x16)**
+Main programs:
 
-1. **Bluetooth Communication**: The laptop handles heavy computational tasks (such as Face Detection or GIF frame extraction) and streams raw data over Bluetooth to the HC-05 module.
-2. **High-Speed UART**: The HC-05 module is configured with a Baud Rate of `115200` to ensure the refresh rate of all 256 pixels on the LED matrix meets performance standards, preventing bottlenecks and screen tearing.
-3. **CH552T Processing**: The MCU reads the streamed data via the UART port and maps it into a local frame buffer.
-4. **Bit-banging for LED Output**: Since the WS2812B integrated LED chip has strict timing protocols (requiring nanosecond-level clock cycles) and the CH552T lacks a dedicated hardware peripheral for this specific waveform, the system employs **Bit-Banging**. The source code strictly controls machine cycles to manually toggle the output pin at high frequencies, pushing the 24-bit RGB data stream to the LED Matrix with absolute precision.
+| File | Role |
+|---|---|
+| `source/ProMatrix.py` | PC host program: image, GIF, text, camera pixel-art |
+| `source/CH552T/CH552T.ino` | Main CH552T firmware: UART receiver + WS2812B driver |
 
-## 📁 Directory Structure
+## Features
 
-- `source/`: A collection of source codes dedicated to system control. It includes various flexible hardware interaction modules and scripts: from rainbow sequences and frame parsing to testing scripts. These codes are the core of all display rendering operations.
-- `CH552T/`: Contains core libraries and base configurations for the MCU. *(**Copyright/Attribution Note**: Important files in this directory are selectively extracted from the official open-source repository [WeActStudio.CH552CoreBoard](https://github.com/WeActStudio/WeActStudio.CH552CoreBoard). All original intellectual property rights for this directory belong to WeActStudio).*
-- `CH55x/`: Contains MCU technical resources:
-  - `Datasheet/`: Full hardware specifications and datasheets for reference.
-  - `Driver/`: MCU connection drivers supporting both Windows **32-bit** and **64-bit** operating systems.
-- `Schemantic.json`: The project's schematic diagram, providing a clear overview of pinouts and overall electronic design.
+- HC-05 Bluetooth SPP wireless transmission
+- 16×16 WS2812B matrix, 256 LEDs
+- 768-byte GRB frame buffer
+- UART frame protocol with header, checksum, and handshake
+- Static image mode
+- GIF mode
+- Scrolling text mode
+- Camera pixel-art realtime mode
+- Separate C demos for UART and LED testing
 
-## 🛠 Setup & Flashing Instructions
+## Repository Structure
 
-### 1. WCH USB Driver Installation
+```text
+DOANVXL/
+├── CH55x/
+│   ├── Datasheet/
+│   │   ├── CH552DS_zh-CN.PDF
+│   │   └── CH552DS1_en.PDF
+│   │
+│   ├── Driver/
+│   │   ├── DRVSETUP64/
+│   │   ├── WIN 1X/
+│   │   ├── CH375W64.sys
+│   │   ├── CH375WDM.CAT
+│   │   ├── CH375WDM.INF
+│   │   ├── CH375WDM.sys
+│   │   └── SETUP.EXE
+│   │
+│   └── HDK/
+│       ├── WeAct-CH55xCoreBoard-V10 Board Shape...
+│       └── WeAct-CH55xCoreBoard-V10 SchDoc.pdf
+│
+├── source/
+│   ├── CH552T/
+│   │   └── CH552T.ino
+│   │
+│   ├── chase.c
+│   ├── loopback.c
+│   ├── ProMatrix.py
+│   ├── rainbow.c
+│   ├── rgb.c
+│   └── sample.png
+│
+├── .gitignore
+├── LICENSE
+├── README.md
+└── schematic.png
+```
 
-For your computer to recognize the CH552T MCU via the USB Bootloader, you must install the WCH driver:
-- Navigate to the `CH55x/Driver/` directory.
-- Run the driver installer corresponding to your Windows architecture:
-  - **64-bit**: Open the `WIN 1X` folder, use the compatible `CH375WDM.INF` / `DRVSETUP64` or integrated x64 setup files.
-  - **32-bit**: Use the setup files supporting x86 versions located in the root Driver directory.
+## Folder Notes
 
-### 2. Adding CH552T Board to Arduino IDE
+| Path | Description |
+|---|---|
+| `CH55x/Datasheet/` | CH552 datasheets |
+| `CH55x/Driver/` | WCH USB driver files |
+| `CH55x/HDK/` | WeAct CH55x board hardware reference files |
+| `source/CH552T/CH552T.ino` | Main MCU firmware |
+| `source/ProMatrix.py` | Main PC host application |
+| `source/loopback.c` | UART 115200 loopback test |
+| `source/rainbow.c` | WS2812B rainbow demo |
+| `source/rgb.c` | RGB/GRB color test |
+| `source/chase.c` | LED chase demo |
+| `source/sample.png` | Sample image for image mode |
 
-1. Open the Arduino IDE.
-2. Go to **File** ➔ **Preferences** (or use the shortcut `Ctrl + ,`).
-3. Copy and paste the following JSON URL into the **Additional Boards Manager URLs** field:
-   ```
-   https://raw.githubusercontent.com/DeqingSun/ch55xduino/ch55xduino/package_ch55xduino_mcs51_index.json
-   ```
-4. Navigate to **Tools** ➔ **Board** ➔ **Boards Manager...**
-5. In the search bar, type `CH55xDuino` and click **Install** to download the core.
-6. Once installed, go back to **Tools** ➔ **Board** and change the board type to `CH55x Boards` ➔ `CH552`.
+## Hardware Connection
 
-### 3. How to Flash (Upload) Code to CH552T
+### HC-05 to CH552T
 
-The CH552T chip flashes via a USB Bootloader mechanism that requires a strict timing sequence:
-1. Completely unplug the USB cable connecting the board to the computer (power off).
-2. **Press and hold** the Bootloader button on the board (this button is connected to pin **P3.6**).
-3. **While continuing to hold the P3.6 button**, plug the USB cable into the computer to power it on.
-4. The chip will now enter bootloader mode. Click the **Upload** button in the Arduino IDE.
-5. As soon as the IDE finishes compiling and the terminal displays "Uploading..." (indicating the IDE has connected and is pushing the code), **release the P3.6 button** so the flashing process can proceed smoothly.
+| HC-05 | CH552T |
+|---|---|
+| VCC | 5V or 3.3V, depending on HC-05 board |
+| GND | GND |
+| TXD | UART RXD |
+| RXD | UART TXD, preferably through level shifting |
 
-## 🚀 Applications & Potential
+### WS2812B to CH552T
 
-By streaming remote frames via UART/Bluetooth protocol at 115200bps to the WS2812B, the project offloads computational resources from the MCU and shifts the "heavy lifting" to the PC. The system is perfectly capable of handling:
-* Rendering any static image (Static Imagery) at a 16x16 resolution.
-* Displaying multimedia content, including animations / GIFs (e.g., the classic *Bad Apple* sequence).
-* Integrating Computer Vision pipelines (image recognition/Machine Learning) on PC, such as real-time **Face Detection**, and instantaneously outputting the tracking box to the embedded LED screen.
+| WS2812B | CH552T |
+|---|---|
+| DIN | P1.1 |
+| 5V | External 5V supply |
+| GND | Common GND |
 
-## 📄 License
-This project is licensed under the terms of the license found in the [LICENSE](LICENSE) file located in the root directory. Please see that file for more details.
+Notes:
+
+- HC-05 RXD is usually 3.3V logic. Use a voltage divider from CH552T TXD to HC-05 RXD if needed.
+- The LED matrix should use a separate 5V supply.
+- CH552T, HC-05, and LED matrix must share GND.
+
+## Frame Protocol
+
+Frame format:
+
+```text
+0xA5 0x5A + 768-byte GRB payload + checksum16
+```
+
+| Field | Size | Description |
+|---|---:|---|
+| Header | 2 bytes | `0xA5 0x5A` |
+| Payload | 768 bytes | 256 LEDs × 3 bytes, GRB order |
+| Checksum | 2 bytes | `sum(payload) & 0xFFFF`, little-endian |
+
+Handshake:
+
+```text
+MCU -> PC    'R'    ready
+PC  -> MCU   frame
+MCU -> PC    'K'    ok
+MCU -> PC    'E'    error
+```
+
+The PC sends the next frame only when the MCU is ready. This prevents UART reception from interrupting WS2812B bit-banging.
+
+## Performance at 115200 Baud
+
+One frame contains 772 bytes including header and checksum.
+
+```text
+UART 8N1 throughput = 115200 / 10 = 11520 bytes/s
+UART frame time     = 772 / 11520 ≈ 67 ms
+WS2812B refresh     ≈ 7.7 ms
+Best-case frame     ≈ 74.7 ms
+Best-case FPS       ≈ 13.4 FPS
+```
+
+Real FPS is lower because of Bluetooth SPP latency, Python serial overhead, Windows scheduling, and handshake delay. Around 7–12 FPS is normal.
+
+## Arduino IDE Setup for CH552T
+
+### 1. Install WCH driver
+
+Driver files are in:
+
+```text
+CH55x/Driver/
+```
+
+Use:
+
+```text
+32-bit Windows: run SETUP.EXE
+64-bit Windows: use the 64-bit driver folder, for example DRVSETUP64/
+```
+
+### 2. Install CH55xDuino board package
+
+Arduino IDE:
+
+```text
+File -> Preferences -> Additional Boards Manager URLs
+```
+
+Add:
+
+```text
+https://raw.githubusercontent.com/DeqingSun/ch55xduino/ch55xduino/package_ch55xduino_mcs51_index.json
+```
+
+Then:
+
+```text
+Tools -> Board -> Boards Manager...
+Search: CH55xDuino
+Install
+```
+
+### 3. Board settings
+
+Use these Arduino IDE settings:
+
+```text
+Board: CH552 Board
+Bootloader pin: P3.6 (D+) pull-up
+Clock Source: 24 MHz (internal), 5V
+Upload method: USB
+USB Settings: USER CODE w/ 0B USB ram
+```
+
+Do **not** use `Default CDC` for the main firmware. Use:
+
+```text
+USER CODE w/ 0B USB ram
+```
+
+This project needs XRAM for the 768-byte LED frame buffer. CDC USB mode reserves USB RAM, so it is not recommended here.
+
+### 4. Manual upload
+
+Use this upload sequence:
+
+```text
+1. Unplug the CH552T board.
+2. Hold the bootloader button connected to P3.6.
+3. Plug the board into USB while still holding the button.
+4. Click Upload in Arduino IDE quickly.
+5. Release the button only after upload succeeds.
+```
+
+Some setups can be configured for automatic upload, but that reserves RAM for upload/USB configuration. For this project, manual bootloader upload with `USER CODE w/ 0B USB ram` is preferred.
+
+## Flash Main Firmware
+
+Open:
+
+```text
+source/CH552T/CH552T.ino
+```
+
+Upload it using the Arduino IDE settings above.
+
+## Run PC Host
+
+Install Python dependencies:
+
+```bash
+python -m pip install pyserial pillow opencv-python numpy
+```
+
+Run from the `source/` folder:
+
+```bash
+python ProMatrix.py
+```
+
+Menu:
+
+```text
+1. ProCV Camera Pixel Art
+2. Send GIF
+3. Send static image
+4. Scrolling text
+5. Config
+6. Exit
+```
+
+Use option `5. Config` to set the Bluetooth COM port.
+
+## HC-05 COM Port
+
+After pairing HC-05 with Windows, use the **Outgoing** Bluetooth COM port.
+
+Example:
+
+```text
+Standard Serial over Bluetooth link (COM11)
+```
+
+If the port is not `COM11`, update it in `ProMatrix.py` option 5.
+
+## Demo Files
+
+### `loopback.c`
+
+Tests whether UART 115200 works correctly on the CH552T itself.
+
+Use it before connecting the HC-05:
+
+```text
+1. Short TX0 and RX0 on the board.
+2. Flash loopback.c.
+3. Send UART data at 115200 baud.
+4. The MCU should receive back the transmitted data.
+```
+
+This confirms the MCU UART configuration before adding Bluetooth.
+
+### Other demos
+
+| File | Purpose |
+|---|---|
+| `rgb.c` | Solid color / GRB order test |
+| `rainbow.c` | WS2812B timing and animation test |
+| `chase.c` | LED indexing and chase effect test |
+
+## Troubleshooting
+
+### Upload fails
+
+Check:
+
+```text
+Driver installed
+Board = CH552 Board
+USB Settings = USER CODE w/ 0B USB ram
+Bootloader pin = P3.6 (D+) pull-up
+Upload method = USB
+```
+
+Then retry manual upload:
+
+```text
+Unplug -> hold P3.6 -> plug USB -> click Upload -> release after success
+```
+
+### Python cannot open COM port
+
+Check:
+
+```text
+HC-05 is paired
+Using Outgoing COM port
+No other serial monitor is using the port
+COM value in ProMatrix.py is correct
+```
+
+### LED turns red
+
+The MCU shows dim red on frame error.
+
+Common causes:
+
+```text
+Wrong COM port
+Bluetooth disconnected
+Wrong baud rate
+UART TX/RX wiring issue
+Checksum error
+PC stopped sending frames
+```
+
+### Text looks scrambled
+
+The current mapping is linear row-major:
+
+```text
+row 0: left -> right
+row 1: left -> right
+row 2: left -> right
+...
+```
+
+If your matrix is serpentine, update the Python `index(x, y)` mapping.
+
+### Colors are wrong
+
+WS2812B expects GRB order, not RGB.
+
+```text
+G, R, B
+```
+
+Both the PC host and MCU firmware use GRB.
+
+## Notes
+
+- Keep the CH552T firmware simple.
+- Do not add UART interrupts while bit-banging WS2812B.
+- Do not modify the WS2812B NOP timing unless measured again.
+- Add new display modes on the PC side in `ProMatrix.py`.
+- The stable MCU role is: receive frame, verify checksum, output WS2812B, ACK.
+
+## License
+
+This project is licensed under the [Apache License 2.0](LICENSE).
