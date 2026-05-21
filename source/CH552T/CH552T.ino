@@ -1,7 +1,7 @@
 #include <stdint.h>
 
 #define NUM_LEDS 256
-#define BUFFER_SIZE 768     
+#define BUFFER_SIZE 768
 
 #define SOF1 0xA5
 #define SOF2 0x5A
@@ -133,12 +133,12 @@ void WS2812B_Show(void) {
 }
 
 // Debug helper
-void fillSolid(uint8_t g, uint8_t r, uint8_t bl) {
+void fillSolid(uint8_t green, uint8_t red, uint8_t blue) {
     uint16_t k;
     for (k = 0; k < BUFFER_SIZE; k += 3) {
-        led_buffer[k]   = g;
-        led_buffer[k+1] = r;
-        led_buffer[k+2] = bl;
+        led_buffer[k]   = green;
+        led_buffer[k+1] = red;
+        led_buffer[k+2] = blue;
     }
 }
 
