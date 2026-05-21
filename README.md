@@ -1,6 +1,6 @@
 # BTMatrix8051
 
-Wireless 16×16 WS2812B LED matrix driven by a CH552T and controlled from a PC through an HC-05 Bluetooth module.
+Wireless 16×16 WS2812B LED matrix controlled from a PC through an HC-05 Bluetooth module and driven by a CH552T 8051-based microcontroller.
 
 ## Overview
 
@@ -13,26 +13,25 @@ PC / Laptop
   -> WS2812B 16×16
 ```
 
-The PC generates a 16×16 frame, sends it over Bluetooth, and the CH552T outputs the data to the WS2812B matrix by bit-banging.
+The PC generates 16×16 display frames and sends them over Bluetooth. The HC-05 forwards the data to the CH552T through UART. The CH552T verifies each frame and outputs the LED data to the WS2812B matrix using cycle-controlled bit-banging.
 
 Main programs:
 
 | File | Role |
 |---|---|
-| `source/ProMatrix.py` | PC host program: image, GIF, text, camera pixel-art |
-| `source/CH552T/CH552T.ino` | Main CH552T firmware: UART receiver + WS2812B driver |
+| `source/ProMatrix.py` | PC host program for camera pixel-art, static image, and scrolling text |
+| `source/CH552T/CH552T.ino` | Main CH552T firmware for UART receiving and WS2812B output |
 
 ## Features
 
 - HC-05 Bluetooth SPP wireless transmission
-- 16×16 WS2812B matrix, 256 LEDs
+- 16×16 WS2812B matrix, 256 RGB LEDs
 - 768-byte GRB frame buffer
-- UART frame protocol with header, checksum, and handshake
-- Static image mode
-- GIF mode
-- Scrolling text mode
+- UART frame protocol with header, checksum, and R/K/E handshake
 - Camera pixel-art realtime mode
-- Separate C demos for UART and LED testing
+- Static image refresh mode
+- Scrolling text mode
+- Standalone C demos for UART and LED testing
 
 ## Repository Structure
 
@@ -42,7 +41,6 @@ DOANVXL/
 │   ├── Datasheet/
 │   │   ├── CH552DS_zh-CN.PDF
 │   │   └── CH552DS1_en.PDF
-│   │
 │   ├── Driver/
 │   │   ├── DRVSETUP64/
 │   │   ├── WIN 1X/
@@ -51,7 +49,6 @@ DOANVXL/
 │   │   ├── CH375WDM.INF
 │   │   ├── CH375WDM.sys
 │   │   └── SETUP.EXE
-│   │
 │   └── HDK/
 │       ├── WeAct-CH55xCoreBoard-V10 Board Shape...
 │       └── WeAct-CH55xCoreBoard-V10 SchDoc.pdf
@@ -59,7 +56,6 @@ DOANVXL/
 ├── source/
 │   ├── CH552T/
 │   │   └── CH552T.ino
-│   │
 │   ├── chase.c
 │   ├── loopback.c
 │   ├── ProMatrix.py
@@ -86,7 +82,7 @@ DOANVXL/
 | `source/rainbow.c` | WS2812B rainbow demo |
 | `source/rgb.c` | RGB/GRB color test |
 | `source/chase.c` | LED chase demo |
-| `source/sample.png` | Sample image for image mode |
+| `source/sample.png` | Sample image for static image mode |
 
 ## Hardware Connection
 
@@ -94,10 +90,10 @@ DOANVXL/
 
 | HC-05 | CH552T |
 |---|---|
-| VCC | 5V or 3.3V, depending on HC-05 board |
+| VCC | 5V or 3.3V |
 | GND | GND |
 | TXD | UART RXD |
-| RXD | UART TXD, preferably through level shifting |
+| RXD | UART TXD |
 
 ### WS2812B to CH552T
 
@@ -109,7 +105,7 @@ DOANVXL/
 
 Notes:
 
-- HC-05 RXD is usually 3.3V logic. Use a voltage divider from CH552T TXD to HC-05 RXD if needed.
+- HC-05 RXD is usually 3.3V logic. Use a voltage divider or level shifter from CH552T TXD to HC-05 RXD if needed.
 - The LED matrix should use a separate 5V supply.
 - CH552T, HC-05, and LED matrix must share GND.
 
@@ -136,11 +132,11 @@ MCU -> PC    'K'    ok
 MCU -> PC    'E'    error
 ```
 
-The PC sends the next frame only when the MCU is ready. This prevents UART reception from interrupting WS2812B bit-banging.
+The PC sends the next frame only after the MCU sends `R`. This keeps UART reception separated from WS2812B bit-banging.
 
 ## Performance at 115200 Baud
 
-One frame contains 772 bytes including header and checksum.
+One full frame contains 772 bytes including header and checksum.
 
 ```text
 UART 8N1 throughput = 115200 / 10 = 11520 bytes/s
@@ -150,7 +146,7 @@ Best-case frame     ≈ 74.7 ms
 Best-case FPS       ≈ 13.4 FPS
 ```
 
-Real FPS is lower because of Bluetooth SPP latency, Python serial overhead, Windows scheduling, and handshake delay. Around 7–12 FPS is normal.
+Real FPS is usually lower because of Bluetooth SPP latency, Python serial overhead, Windows scheduling, and handshake delay. Around 7–12 FPS is normal.
 
 ## Arduino IDE Setup for CH552T
 
@@ -166,12 +162,12 @@ Use:
 
 ```text
 32-bit Windows: run SETUP.EXE
-64-bit Windows: use the 64-bit driver folder, for example DRVSETUP64/
+64-bit Windows: use DRVSETUP64/
 ```
 
 ### 2. Install CH55xDuino board package
 
-Arduino IDE:
+Open Arduino IDE:
 
 ```text
 File -> Preferences -> Additional Boards Manager URLs
@@ -183,7 +179,7 @@ Add:
 https://raw.githubusercontent.com/DeqingSun/ch55xduino/ch55xduino/package_ch55xduino_mcs51_index.json
 ```
 
-Then:
+Then install the board package:
 
 ```text
 Tools -> Board -> Boards Manager...
@@ -203,17 +199,9 @@ Upload method: USB
 USB Settings: USER CODE w/ 0B USB ram
 ```
 
-Do **not** use `Default CDC` for the main firmware. Use:
-
-```text
-USER CODE w/ 0B USB ram
-```
-
-This project needs XRAM for the 768-byte LED frame buffer. CDC USB mode reserves USB RAM, so it is not recommended here.
+Do not use `Default CDC` for the main firmware. The project uses a 768-byte LED frame buffer, so `USER CODE w/ 0B USB ram` is preferred.
 
 ### 4. Manual upload
-
-Use this upload sequence:
 
 ```text
 1. Unplug the CH552T board.
@@ -223,7 +211,7 @@ Use this upload sequence:
 5. Release the button only after upload succeeds.
 ```
 
-Some setups can be configured for automatic upload, but that reserves RAM for upload/USB configuration. For this project, manual bootloader upload with `USER CODE w/ 0B USB ram` is preferred.
+Automatic upload may reserve USB/XRAM resources. For this project, manual bootloader upload with `USER CODE w/ 0B USB ram` is recommended.
 
 ## Flash Main Firmware
 
@@ -249,18 +237,27 @@ Run from the `source/` folder:
 python ProMatrix.py
 ```
 
-Menu:
+Current menu:
 
 ```text
-1. ProCV Camera Pixel Art
-2. Send GIF
-3. Send static image
-4. Scrolling text
-5. Config
-6. Exit
+1. Camera Pixel Art
+2. Static Image
+3. Scrolling Text
+4. Exit
 ```
 
-Use option `5. Config` to set the Bluetooth COM port.
+Main settings are edited directly at the top of `ProMatrix.py`:
+
+```python
+PORT = "COM5"
+BAUD = 115200
+CAMERA_ID = 0
+
+BRIGHTNESS = 0.05
+DEBUG_WINDOW = True
+DEFAULT_TEXT = "TEST OK"
+FPS = 10.0
+```
 
 ## HC-05 COM Port
 
@@ -269,10 +266,10 @@ After pairing HC-05 with Windows, use the **Outgoing** Bluetooth COM port.
 Example:
 
 ```text
-Standard Serial over Bluetooth link (COM11)
+Standard Serial over Bluetooth link (COM5)
 ```
 
-If the port is not `COM11`, update it in `ProMatrix.py` option 5.
+If Windows assigns another port, update `PORT` in `source/ProMatrix.py`.
 
 ## Demo Files
 
@@ -327,8 +324,26 @@ Check:
 HC-05 is paired
 Using Outgoing COM port
 No other serial monitor is using the port
-COM value in ProMatrix.py is correct
+PORT in ProMatrix.py is correct
 ```
+
+### Camera cannot be opened
+
+Check:
+
+```text
+Camera is enabled in BIOS / Windows settings
+No other app is using the camera
+CAMERA_ID in ProMatrix.py is correct
+```
+
+Try:
+
+```python
+CAMERA_ID = 1
+```
+
+if `CAMERA_ID = 0` does not work.
 
 ### LED turns red
 
@@ -356,7 +371,7 @@ row 2: left -> right
 ...
 ```
 
-If your matrix is serpentine, update the Python `index(x, y)` mapping.
+If your matrix is serpentine, update the Python pixel mapping.
 
 ### Colors are wrong
 
