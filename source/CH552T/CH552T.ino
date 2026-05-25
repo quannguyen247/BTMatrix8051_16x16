@@ -9,6 +9,9 @@
 #define ACK_OK 'K'
 #define ACK_ERR 'E' 
 
+#define IDLE_READY_TIMEOUT 200U 
+#define BYTE_TIMEOUT 2000U
+
 __xdata uint8_t led_buffer[BUFFER_SIZE];
 __data uint16_t i; // Run through 768 bytes (select byte)
 __data uint8_t b, j; // Current sending byte & bit index
@@ -74,26 +77,33 @@ uint8_t ReceiveFrame(void) {
     uint16_t sum_calc = 0; // Checksum calculated from payload
     uint16_t sum_rx; // Checksum received from UART0 (PC)
     uint8_t lo, hi; // 2 byte checksum low/high
+    uint8_t header_ok = 0;
 
-    // Find header A5 5A
-    while (1) {
-        if (!UART0_ReadByteTimeout(&v, 60000U)) return 0;
-        if (v == SOF1) {
-            if (!UART0_ReadByteTimeout(&v, 3000U)) return 0;
-            if (v == SOF2) break;
+    // Idle: send R repeatedly while finding header A5 5A
+    while (!header_ok) {
+        UART0_SendByte(ACK_READY);
+        while (1) {
+            if (!UART0_ReadByteTimeout(&v, IDLE_READY_TIMEOUT)) break;
+            if (v == SOF1) {
+                if (!UART0_ReadByteTimeout(&v, BYTE_TIMEOUT)) return 0;
+                if (v == SOF2) {
+                    header_ok = 1;
+                    break;
+                }
+            }
         }
     }
 
     // Receive 768 byte GRB 
     for (k = 0; k < BUFFER_SIZE; k++) {
-        if (!UART0_ReadByteTimeout(&v, 3000U)) return 0;
+        if (!UART0_ReadByteTimeout(&v, BYTE_TIMEOUT)) return 0;
         led_buffer[k] = v;  
         sum_calc += v;
     }
 
     // Receive low/high checksum from UART0 (PC)
-    if (!UART0_ReadByteTimeout(&lo, 3000U)) return 0;
-    if (!UART0_ReadByteTimeout(&hi, 3000U)) return 0;
+    if (!UART0_ReadByteTimeout(&lo, BYTE_TIMEOUT)) return 0;
+    if (!UART0_ReadByteTimeout(&hi, BYTE_TIMEOUT)) return 0;
     sum_rx = (uint16_t)lo | ((uint16_t)hi << 8);
 
     return (sum_calc == sum_rx) ? 1 : 0;
@@ -167,10 +177,7 @@ void setup(void) {
     UART0_Init(); // Init UART0 for communication
 }
 
-// Main loop
 void loop(void) {
-    UART0_SendByte(ACK_READY); 
-
     if (ReceiveFrame()) {
         // Received OK -> safe to bit-bang WS2812B.
         WS2812B_Show();
