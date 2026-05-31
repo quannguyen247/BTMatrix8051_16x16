@@ -28,6 +28,7 @@ Main programs:
 - 16×16 WS2812B matrix, 256 RGB LEDs
 - 768-byte GRB frame buffer
 - UART frame protocol with header, checksum, and R/K/E handshake
+- MCU repeatedly sends `R` while idle, so the PC host can reconnect without resetting the board
 - Camera pixel-art realtime mode
 - Static image refresh mode
 - Scrolling text mode
@@ -132,7 +133,15 @@ MCU -> PC    'K'    ok
 MCU -> PC    'E'    error
 ```
 
-The PC sends the next frame only after the MCU sends `R`. This keeps UART reception separated from WS2812B bit-banging.
+The current firmware sends `R` repeatedly while idle and scans for the frame header `0xA5 0x5A`. When the PC sees `R`, it sends one complete frame. After receiving and checking the frame, the MCU outputs WS2812B data and replies with `K` or `E`.
+
+This means each display frame still follows one handshake cycle:
+
+```text
+R -> frame -> K/E
+```
+
+At `FPS = 10`, the PC attempts to send 10 complete display frames per second, so there are about 10 handshake cycles per second if UART/Bluetooth timing allows it. This keeps UART reception separated from WS2812B bit-banging and allows the Python host to be stopped and started again without pressing the reset button.
 
 ## Performance at 115200 Baud
 
@@ -389,7 +398,7 @@ Both the PC host and MCU firmware use GRB.
 - Do not add UART interrupts while bit-banging WS2812B.
 - Do not modify the WS2812B NOP timing unless measured again.
 - Add new display modes on the PC side in `ProMatrix.py`.
-- The stable MCU role is: receive frame, verify checksum, output WS2812B, ACK.
+- The stable MCU role is: advertise READY while idle, receive one frame, verify checksum, output WS2812B, ACK.
 
 ## License
 
