@@ -51,7 +51,7 @@ DOANVXL/
 │   │   ├── CH375WDM.sys
 │   │   └── SETUP.EXE
 │   └── HDK/
-│       ├── WeAct-CH55xCoreBoard-V10 Board Shape...
+│       ├── WeAct-CH55xCoreBoard-V10 Board Shape.pdf
 │       └── WeAct-CH55xCoreBoard-V10 SchDoc.pdf
 │
 ├── source/
@@ -65,9 +65,10 @@ DOANVXL/
 │   └── sample.png
 │
 ├── .gitignore
+├── HC-05 Datasheet.pdf
 ├── LICENSE
 ├── README.md
-└── schematic.png
+└── WS2812B-LED-datasheet.pdf
 ```
 
 ## Folder Notes
@@ -84,6 +85,10 @@ DOANVXL/
 | `source/rgb.c` | RGB/GRB color test |
 | `source/chase.c` | LED chase demo |
 | `source/sample.png` | Sample image for static image mode |
+| `HC-05 Datasheet.pdf` | HC-05 Bluetooth module datasheet |
+| `WS2812B-LED-datasheet.pdf` | WS2812B RGB LED datasheet |
+
+*The files in the `CH55x/` directory are sourced from the official [WeAct Studio CH552 Core Board repository](https://github.com/WeActStudio/WeActStudio.CH552CoreBoard).*
 
 ## Hardware Connection
 
@@ -91,7 +96,7 @@ DOANVXL/
 
 | HC-05 | CH552T |
 |---|---|
-| VCC | 5V or 3.3V |
+| VCC | 5V |
 | GND | GND |
 | TXD | UART RXD |
 | RXD | UART TXD |
@@ -106,7 +111,6 @@ DOANVXL/
 
 Notes:
 
-- HC-05 RXD is usually 3.3V logic. Use a voltage divider or level shifter from CH552T TXD to HC-05 RXD if needed.
 - The LED matrix should use a separate 5V supply.
 - CH552T, HC-05, and LED matrix must share GND.
 
@@ -399,6 +403,12 @@ Both the PC host and MCU firmware use GRB.
 - Do not modify the WS2812B NOP timing unless measured again.
 - Add new display modes on the PC side in `ProMatrix.py`.
 - The stable MCU role is: advertise READY while idle, receive one frame, verify checksum, output WS2812B, ACK.
+
+## References & Datasheets
+
+- **HC-05 Bluetooth Module Datasheet**: [Original PDF Link](https://components101.com/sites/default/files/component_datasheet/HC-05%20Datasheet.pdf)
+- **WS2812B RGB LED Datasheet**: [Original PDF Link](https://cdn.sparkfun.com/assets/e/6/1/f/4/WS2812B-LED-datasheet.pdf)
+- **WeAct Studio CH552 Core Board**: [WeActStudio/WeActStudio.CH552CoreBoard](https://github.com/WeActStudio/WeActStudio.CH552CoreBoard)
 
 ## License
 
